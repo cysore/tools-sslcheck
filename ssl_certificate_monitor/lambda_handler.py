@@ -79,6 +79,9 @@ class SSLCertificateMonitor:
             # 发送通知（如果有即将过期或已过期的证书）
             notification_sent = self._send_notifications(categorized)
             
+            # 发送完整状态报告（每次都发送）
+            self._send_status_report(certificate_results)
+            
             # 结束检查
             self.logger_service.log_check_end()
             
@@ -204,6 +207,34 @@ class SSLCertificateMonitor:
                 self.logger_service.logger.error(f"发送错误通知也失败了: {str(fallback_error)}")
         
         return notification_sent
+    
+    def _send_status_report(self, all_certificates: List[CertificateInfo]) -> bool:
+        """
+        发送完整的SSL证书状态报告
+        
+        Args:
+            all_certificates: 所有证书检查结果
+            
+        Returns:
+            bool: 发送是否成功
+        """
+        try:
+            # 获取执行摘要
+            execution_summary = self.logger_service.get_execution_summary()
+            
+            # 发送状态报告
+            success = self.notification_service.send_status_report(all_certificates, execution_summary)
+            
+            if success:
+                self.logger_service.logger.info("SSL证书状态报告发送成功")
+            else:
+                self.logger_service.logger.error("SSL证书状态报告发送失败")
+                
+            return success
+            
+        except Exception as e:
+            self.logger_service.logger.error(f"发送SSL证书状态报告时发生错误: {str(e)}")
+            return False
     
     def _send_error_notification(self, error: Exception, domain_count: int):
         """
