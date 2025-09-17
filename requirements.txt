@@ -1,0 +1,10 @@
+# AWS SDK
+boto3>=1.26.0
+
+# SSL/TLS处理 (Lambda运行时已包含，但为了本地测试保留)
+# cryptography>=3.4.8
+
+# 测试依赖 (仅用于开发环境)
+pytest>=7.0.0
+pytest-mock>=3.7.0
+moto>=4.0.0

@@ -1,0 +1,34 @@
+[
+    {
+        "ParameterKey": "FunctionName",
+        "ParameterValue": "ssl-certificate-monitor"
+    },
+    {
+        "ParameterKey": "ScheduleExpression",
+        "ParameterValue": "rate(30 days)"
+    },
+    {
+        "ParameterKey": "DomainsToMonitor",
+        "ParameterValue": "example.com,yoursite.com,anotherdomain.org"
+    },
+    {
+        "ParameterKey": "NotificationEmail",
+        "ParameterValue": "admin@yourcompany.com"
+    },
+    {
+        "ParameterKey": "LogLevel",
+        "ParameterValue": "INFO"
+    },
+    {
+        "ParameterKey": "LambdaTimeout",
+        "ParameterValue": "180"
+    },
+    {
+        "ParameterKey": "LambdaMemorySize",
+        "ParameterValue": "256"
+    },
+    {
+        "ParameterKey": "LogRetentionDays",
+        "ParameterValue": "14"
+    }
+]

@@ -1,0 +1,6 @@
+# Lambda部署依赖
+# 注意：boto3和botocore已经在Lambda运行时中提供，无需包含
+
+# 如果需要特定版本的boto3，可以取消注释下面的行
+# boto3>=1.26.0
+# botocore>=1.29.0

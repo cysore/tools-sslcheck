@@ -1,0 +1,157 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SSL证书监控系统 - CloudFormation模板'
+
+Parameters:
+  FunctionName:
+    Type: String
+    Default: ssl-certificate-monitor
+    Description: Lambda函数名称
+    
+  ScheduleExpression:
+    Type: String
+    Default: 'rate(30 days)'
+    Description: 定时触发表达式
+    AllowedValues:
+      - 'rate(1 day)'
+      - 'rate(7 days)'
+      - 'rate(30 days)'
+      - 'cron(0 9 * * ? *)'  # 每天上午9点
+      - 'cron(0 9 ? * MON *)'  # 每周一上午9点
+    
+  DomainsToMonitor:
+    Type: CommaDelimitedList
+    Description: 要监控的域名列表（逗号分隔）
+    Default: 'example.com,test.org'
+    
+  NotificationEmail:
+    Type: String
+    Description: 接收通知的邮箱地址
+    Default: 'admin@example.com'
+    
+  LogLevel:
+    Type: String
+    Default: 'INFO'
+    AllowedValues:
+      - 'DEBUG'
+      - 'INFO'
+      - 'WARNING'
+      - 'ERROR'
+    Description: 日志级别
+
+Resources:
+  # SNS主题
+  SSLAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: ssl-certificate-alerts
+      DisplayName: SSL证书过期警报
+      
+  # SNS订阅
+  EmailSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      TopicArn: !Ref SSLAlertsTopic
+      Endpoint: !Ref NotificationEmail
+
+  # Lambda执行角色
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${FunctionName}-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: SNSPublishPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: !Ref SSLAlertsTopic
+
+  # Lambda函数
+  SSLMonitorFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref FunctionName
+      Runtime: python3.9
+      Handler: ssl_certificate_monitor.lambda_handler.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 180
+      MemorySize: 256
+      Description: SSL证书过期监控系统
+      Environment:
+        Variables:
+          DOMAINS: !Join [',', !Ref DomainsToMonitor]
+          SNS_TOPIC_ARN: !Ref SSLAlertsTopic
+          LOG_LEVEL: !Ref LogLevel
+      Code:
+        ZipFile: |
+          # 占位符代码 - 实际部署时会被替换
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': 'Please deploy the actual code using the deployment script.'
+              }
+
+  # EventBridge规则
+  ScheduleRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: !Sub '${FunctionName}-schedule'
+      Description: SSL证书监控定时触发规则
+      ScheduleExpression: !Ref ScheduleExpression
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt SSLMonitorFunction.Arn
+          Id: SSLMonitorTarget
+
+  # Lambda权限（允许EventBridge调用）
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref SSLMonitorFunction
+      Action: lambda:InvokeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt ScheduleRule.Arn
+
+  # CloudWatch日志组
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${FunctionName}'
+      RetentionInDays: 14
+
+Outputs:
+  LambdaFunctionArn:
+    Description: Lambda函数ARN
+    Value: !GetAtt SSLMonitorFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-LambdaFunctionArn'
+      
+  SNSTopicArn:
+    Description: SNS主题ARN
+    Value: !Ref SSLAlertsTopic
+    Export:
+      Name: !Sub '${AWS::StackName}-SNSTopicArn'
+      
+  ScheduleRuleArn:
+    Description: EventBridge规则ARN
+    Value: !GetAtt ScheduleRule.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ScheduleRuleArn'
+      
+  ExecutionRoleArn:
+    Description: Lambda执行角色ARN
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ExecutionRoleArn'
