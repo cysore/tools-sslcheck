@@ -10,7 +10,7 @@ from typing import Optional, List
 class CertificateInfo:
     """SSL证书信息"""
     domain: str
-    expiry_date: datetime
+    expiry_date: Optional[datetime]
     days_until_expiry: int
     issuer: str
     is_valid: bool

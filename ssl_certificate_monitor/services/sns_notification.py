@@ -390,12 +390,17 @@ class SNSNotificationService(NotificationServiceInterface):
             str: 格式化的报告内容
         """
         # 分类证书
-        failed_certs = [cert for cert in all_domains if not cert.is_valid]
-        valid_certs = [cert for cert in all_domains if cert.is_valid]
+        # 过期证书：包括正常检查到的过期证书和SSL验证失败但明确是过期的证书
+        expired_certs = [cert for cert in all_domains if cert.is_expired]
         
-        expired_certs = [cert for cert in valid_certs if cert.is_expired]
-        expiring_certs = [cert for cert in valid_certs if cert.is_expiring_soon and not cert.is_expired]
-        normal_certs = [cert for cert in valid_certs if not cert.is_expiring_soon and not cert.is_expired]
+        # 即将过期证书：只包括有效检查且即将过期的证书
+        expiring_certs = [cert for cert in all_domains if cert.is_valid and cert.is_expiring_soon and not cert.is_expired]
+        
+        # 正常证书：有效检查且不即将过期的证书
+        normal_certs = [cert for cert in all_domains if cert.is_valid and not cert.is_expiring_soon and not cert.is_expired]
+        
+        # 检查失败证书：无效且不是过期原因的证书
+        failed_certs = [cert for cert in all_domains if not cert.is_valid and not cert.is_expired]
         
         lines = [
             "SSL证书监控日报",
@@ -417,9 +422,15 @@ class SNSNotificationService(NotificationServiceInterface):
             ])
             for cert in expired_certs:
                 lines.append(f"• {cert.domain}")
-                lines.append(f"  过期时间: {cert.expiry_date.strftime('%Y-%m-%d')}")
-                lines.append(f"  已过期: {abs(cert.days_until_expiry)} 天")
-                lines.append(f"  颁发者: {cert.issuer}")
+                if cert.expiry_date and cert.days_until_expiry != -999:
+                    # 正常检查到的过期证书，显示具体过期时间
+                    lines.append(f"  过期时间: {cert.expiry_date.strftime('%Y-%m-%d')}")
+                    lines.append(f"  已过期: {abs(cert.days_until_expiry)} 天")
+                    lines.append(f"  颁发者: {cert.issuer}")
+                else:
+                    # SSL验证失败的过期证书，显示错误信息
+                    lines.append(f"  状态: 证书已过期（SSL验证失败）")
+                    lines.append(f"  错误: {cert.error_message}")
                 lines.append("")
         
         # 即将过期证书（警告）
@@ -453,7 +464,10 @@ class SNSNotificationService(NotificationServiceInterface):
                 "-" * 30
             ])
             for cert in normal_certs:
-                lines.append(f"• {cert.domain} - {cert.days_until_expiry}天后过期 ({cert.expiry_date.strftime('%Y-%m-%d')})")
+                if cert.expiry_date:
+                    lines.append(f"• {cert.domain} - {cert.days_until_expiry}天后过期 ({cert.expiry_date.strftime('%Y-%m-%d')})")
+                else:
+                    lines.append(f"• {cert.domain} - 状态正常")
             lines.append("")
         
         # 添加统计摘要

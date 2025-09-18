@@ -66,14 +66,33 @@ class SSLCertificateChecker(SSLCertificateCheckerInterface):
             
             self.logger.error(f"检查域名 {domain} 的证书时发生错误: {str(e)}")
             
-            return CertificateInfo(
-                domain=domain,
-                expiry_date=datetime.now(timezone.utc),
-                days_until_expiry=-1,
-                issuer="Unknown",
-                is_valid=False,
-                error_message=f"{error_info['error_type']}: {error_info['error_message']}"
+            # 检查是否是证书过期错误
+            error_message = str(e).lower()
+            is_expired_cert = (
+                'certificate has expired' in error_message or
+                'certificate verify failed' in error_message and 'expired' in error_message
             )
+            
+            if is_expired_cert:
+                # 对于过期证书，我们知道它已过期但不知道具体过期时间
+                return CertificateInfo(
+                    domain=domain,
+                    expiry_date=None,  # 无法获取具体过期时间
+                    days_until_expiry=-999,  # 使用特殊值表示已过期但不知道具体天数
+                    issuer="Unknown",
+                    is_valid=False,
+                    error_message=f"{error_info['error_type']}: {error_info['error_message']}"
+                )
+            else:
+                # 其他类型的错误（连接失败、DNS错误等）
+                return CertificateInfo(
+                    domain=domain,
+                    expiry_date=None,
+                    days_until_expiry=0,  # 使用0表示检查失败
+                    issuer="Unknown",
+                    is_valid=False,
+                    error_message=f"{error_info['error_type']}: {error_info['error_message']}"
+                )
     
     def _clean_domain(self, domain: str) -> str:
         """
