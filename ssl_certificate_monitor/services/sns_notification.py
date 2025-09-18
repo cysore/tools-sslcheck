@@ -390,9 +390,12 @@ class SNSNotificationService(NotificationServiceInterface):
             str: 格式化的报告内容
         """
         # 分类证书
-        expired_certs = [cert for cert in all_domains if cert.is_expired]
-        expiring_certs = [cert for cert in all_domains if cert.is_expiring_soon and not cert.is_expired]
-        normal_certs = [cert for cert in all_domains if not cert.is_expiring_soon and not cert.is_expired]
+        failed_certs = [cert for cert in all_domains if not cert.is_valid]
+        valid_certs = [cert for cert in all_domains if cert.is_valid]
+        
+        expired_certs = [cert for cert in valid_certs if cert.is_expired]
+        expiring_certs = [cert for cert in valid_certs if cert.is_expiring_soon and not cert.is_expired]
+        normal_certs = [cert for cert in valid_certs if not cert.is_expiring_soon and not cert.is_expired]
         
         lines = [
             "SSL证书监控日报",
@@ -432,6 +435,17 @@ class SNSNotificationService(NotificationServiceInterface):
                 lines.append(f"  颁发者: {cert.issuer}")
                 lines.append("")
         
+        # 检查失败的证书（错误）
+        if failed_certs:
+            lines.extend([
+                "❌ 检查失败的证书:",
+                "-" * 30
+            ])
+            for cert in failed_certs:
+                lines.append(f"• {cert.domain}")
+                lines.append(f"  错误: {cert.error_message}")
+                lines.append("")
+        
         # 正常证书（信息）
         if normal_certs:
             lines.extend([
@@ -449,20 +463,26 @@ class SNSNotificationService(NotificationServiceInterface):
             f"🚨 已过期: {len(expired_certs)} 个",
             f"⚠️  即将过期: {len(expiring_certs)} 个",
             f"✅ 正常: {len(normal_certs)} 个",
+            f"❌ 检查失败: {len(failed_certs)} 个",
             ""
         ])
         
         # 添加建议操作
-        if expired_certs or expiring_certs:
+        if expired_certs or expiring_certs or failed_certs:
             lines.extend([
                 "🔧 建议操作:",
-                "-" * 30,
-                "1. 立即续期已过期的证书",
-                "2. 计划续期即将过期的证书",
-                "3. 更新证书后重新部署相关服务",
-                "4. 检查证书自动续期配置",
-                ""
+                "-" * 30
             ])
+            if expired_certs:
+                lines.append("1. 立即续期已过期的证书")
+            if expiring_certs:
+                lines.append("2. 计划续期即将过期的证书")
+            if failed_certs:
+                lines.append("3. 检查失败域名的网络连接和DNS配置")
+            if expired_certs or expiring_certs:
+                lines.append("4. 更新证书后重新部署相关服务")
+                lines.append("5. 检查证书自动续期配置")
+            lines.append("")
         
         lines.extend([
             "---",
