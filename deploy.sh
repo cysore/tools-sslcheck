@@ -6,7 +6,7 @@ set -e
 
 # 配置变量
 FUNCTION_NAME="ssl-certificate-monitor"
-RUNTIME="python3.9"
+RUNTIME="python3.12"
 HANDLER="ssl_certificate_monitor.lambda_handler.lambda_handler"
 TIMEOUT=180
 MEMORY_SIZE=256

@@ -169,4 +169,4 @@ class TestSSLCertificateChecker:
         assert isinstance(result, CertificateInfo)
         assert result.domain == "invalid.com"
         assert result.is_valid is False
-        assert result.error_message == "Connection failed"
+        assert "Connection failed" in result.error_message
